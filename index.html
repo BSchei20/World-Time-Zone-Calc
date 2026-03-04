@@ -6,40 +6,43 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Global Time</title>
+    <title>Global Time Dual</title>
 
     <style>
         :root { --primary: #4f46e5; --bg: #f0f2f5; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, sans-serif;
             display: flex; justify-content: center; padding: 20px; background: var(--bg); margin: 0;
-            -webkit-tap-highlight-color: transparent;
         }
-        .card { background: white; padding: 1.5rem; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 380px; margin-top: 20px; }
-        h2 { font-size: 1.3rem; color: #1a1a1a; margin-bottom: 1.5rem; text-align: center; font-weight: 700; }
+        .card { background: white; padding: 1.5rem; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 380px; margin-top: 10px; }
+        h2 { font-size: 1.2rem; color: #1a1a1a; margin-bottom: 1rem; text-align: center; font-weight: 700; }
         
         .zone-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 6px; font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
         
         select, input { 
-            width: 100%; padding: 14px; border: 2px solid #f1f5f9; border-radius: 14px; 
-            font-size: 1rem; background: #f8fafc; color: #1e293b; font-weight: 500;
+            width: 100%; padding: 12px; border: 2px solid #f1f5f9; border-radius: 12px; 
+            font-size: 1rem; background: #f8fafc; color: #1e293b; font-weight: 500; box-sizing: border-box;
         }
 
+        .dual-display { font-size: 0.9rem; color: #6366f1; font-weight: 600; margin-top: 4px; display: block; }
+
         .switch-btn {
-            background: var(--primary); color: white; border: none; width: 44px; height: 44px;
-            border-radius: 50%; display: flex; margin: -8px auto 8px; cursor: pointer;
+            background: var(--primary); color: white; border: none; width: 40px; height: 40px;
+            border-radius: 50%; display: flex; margin: 5px auto; cursor: pointer;
             align-items: center; justify-content: center; font-size: 1.2rem;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); position: relative; z-index: 10;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
         }
 
         .result-box { 
-            background: var(--primary); color: white; padding: 28px 15px; border-radius: 20px; 
-            text-align: center; margin-top: 20px;
+            background: var(--primary); color: white; padding: 20px 15px; border-radius: 20px; 
+            text-align: center; margin-top: 15px;
         }
-        .time-output { font-size: 3.2rem; font-weight: 800; display: block; letter-spacing: -1px; }
-        .day-note { font-size: 0.9rem; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; display: inline-block; margin-top: 10px; }
-        .gap-info { font-size: 0.75rem; margin-top: 15px; opacity: 0.7; }
+        .time-output-main { font-size: 2.8rem; font-weight: 800; display: block; line-height: 1.1; }
+        .time-output-sub { font-size: 1.2rem; font-weight: 500; opacity: 0.9; display: block; margin-top: 5px; }
+        
+        .day-note { font-size: 0.85rem; font-weight: 700; background: rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 20px; display: inline-block; margin-top: 10px; }
+        .gap-info { font-size: 0.75rem; margin-top: 12px; opacity: 0.7; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -51,6 +54,7 @@
         <label>Start Location</label>
         <select id="fromZone" onchange="convertTime()"></select>
         <input type="time" id="timeInput" oninput="convertTime()" style="margin-top: 10px;">
+        <span id="startDual" class="dual-display"></span>
     </div>
 
     <button class="switch-btn" onclick="swapZones()">⇅</button>
@@ -61,7 +65,8 @@
     </div>
 
     <div class="result-box">
-        <span class="time-output" id="outputTime">--:--</span>
+        <span class="time-output-main" id="outputMilitary">00:00</span>
+        <span class="time-output-sub" id="output12hr">12:00 AM</span>
         <span id="dayNote" class="day-note" style="display:none;"></span>
         <div class="gap-info" id="gapStatus">...</div>
     </div>
@@ -75,10 +80,8 @@
         { name: "New York (EST/EDT)", value: "America/New_York" },
         { name: "Los Angeles (PST/PDT)", value: "America/Los_Angeles" },
         { name: "Tokyo (JST)", value: "Asia/Tokyo" },
-        { name: "Dubai (GST)", value: "Asia/Dubai" },
         { name: "Paris (CET/CEST)", value: "Europe/Paris" },
-        { name: "Sydney (AEST/AEDT)", value: "Australia/Sydney" },
-        { name: "India (IST)", value: "Asia/Kolkata" }
+        { name: "Sydney (AEST/AEDT)", value: "Australia/Sydney" }
     ];
 
     const fromSelect = document.getElementById('fromZone');
@@ -115,15 +118,22 @@
         const baseDate = new Date();
         baseDate.setHours(hours, minutes, 0, 0);
 
-        // Calculate offset
-        const sourceDate = new Date(new Date().toLocaleString("en-US", {timeZone: fromSelect.value}));
-        const targetDate = new Date(new Date().toLocaleString("en-US", {timeZone: toSelect.value}));
-        const diffHours = Math.round((targetDate - sourceDate) / 36e5);
+        // Calculate 12hr for the START location
+        const start12 = baseDate.toLocaleTimeString("en-US", { hour: 'numeric', minute: '2-digit', hour12: true });
+        document.getElementById('startDual').innerText = `${timeVal} / ${start12}`;
 
-        const toTimeStr = baseDate.toLocaleTimeString("en-US", {
-            timeZone: toSelect.value, 
-            hour: '2-digit', minute: '2-digit', hour12: false 
+        // Get Time in TARGET location
+        const targetMilitary = baseDate.toLocaleTimeString("en-US", {
+            timeZone: toSelect.value, hour: '2-digit', minute: '2-digit', hour12: false 
         });
+        const target12 = baseDate.toLocaleTimeString("en-US", {
+            timeZone: toSelect.value, hour: 'numeric', minute: '2-digit', hour12: true 
+        });
+
+        // Day and Offset Logic
+        const sourceNow = new Date(new Date().toLocaleString("en-US", {timeZone: fromSelect.value}));
+        const targetNow = new Date(new Date().toLocaleString("en-US", {timeZone: toSelect.value}));
+        const diffHours = Math.round((targetNow - sourceNow) / 36e5);
 
         const fromDateStr = baseDate.toLocaleDateString("en-US", {timeZone: fromSelect.value});
         const toDateStr = baseDate.toLocaleDateString("en-US", {timeZone: toSelect.value});
@@ -136,7 +146,8 @@
             dayNote.style.display = "none";
         }
 
-        document.getElementById('outputTime').innerText = toTimeStr;
+        document.getElementById('outputMilitary').innerText = targetMilitary;
+        document.getElementById('output12hr').innerText = target12;
         document.getElementById('gapStatus').innerText = `Difference: ${diffHours >= 0 ? '+' : ''}${diffHours} Hours`;
     }
 
