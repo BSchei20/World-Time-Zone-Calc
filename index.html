@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Global Time</title>
+
+    <style>
+        :root { --primary: #4f46e5; --bg: #f0f2f5; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex; justify-content: center; padding: 20px; background: var(--bg); margin: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .card { background: white; padding: 1.5rem; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 380px; margin-top: 20px; }
+        h2 { font-size: 1.3rem; color: #1a1a1a; margin-bottom: 1.5rem; text-align: center; font-weight: 700; }
+        
+        .zone-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 6px; font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        
+        select, input { 
+            width: 100%; padding: 14px; border: 2px solid #f1f5f9; border-radius: 14px; 
+            font-size: 1rem; background: #f8fafc; color: #1e293b; font-weight: 500;
+        }
+
+        .switch-btn {
+            background: var(--primary); color: white; border: none; width: 44px; height: 44px;
+            border-radius: 50%; display: flex; margin: -8px auto 8px; cursor: pointer;
+            align-items: center; justify-content: center; font-size: 1.2rem;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4); position: relative; z-index: 10;
+        }
+
+        .result-box { 
+            background: var(--primary); color: white; padding: 28px 15px; border-radius: 20px; 
+            text-align: center; margin-top: 20px;
+        }
+        .time-output { font-size: 3.2rem; font-weight: 800; display: block; letter-spacing: -1px; }
+        .day-note { font-size: 0.9rem; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; display: inline-block; margin-top: 10px; }
+        .gap-info { font-size: 0.75rem; margin-top: 15px; opacity: 0.7; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Global Time Shift</h2>
+    
+    <div class="zone-group">
+        <label>Start Location</label>
+        <select id="fromZone" onchange="convertTime()"></select>
+        <input type="time" id="timeInput" oninput="convertTime()" style="margin-top: 10px;">
+    </div>
+
+    <button class="switch-btn" onclick="swapZones()">⇅</button>
+
+    <div class="zone-group">
+        <label>Target Location</label>
+        <select id="toZone" onchange="convertTime()"></select>
+    </div>
+
+    <div class="result-box">
+        <span class="time-output" id="outputTime">--:--</span>
+        <span id="dayNote" class="day-note" style="display:none;"></span>
+        <div class="gap-info" id="gapStatus">...</div>
+    </div>
+</div>
+
+<script>
+    const zones = [
+        { name: "Dallas (CST/CDT)", value: "America/Chicago" },
+        { name: "Israel (IST/IDT)", value: "Asia/Jerusalem" },
+        { name: "London (GMT/BST)", value: "Europe/London" },
+        { name: "New York (EST/EDT)", value: "America/New_York" },
+        { name: "Los Angeles (PST/PDT)", value: "America/Los_Angeles" },
+        { name: "Tokyo (JST)", value: "Asia/Tokyo" },
+        { name: "Dubai (GST)", value: "Asia/Dubai" },
+        { name: "Paris (CET/CEST)", value: "Europe/Paris" },
+        { name: "Sydney (AEST/AEDT)", value: "Australia/Sydney" },
+        { name: "India (IST)", value: "Asia/Kolkata" }
+    ];
+
+    const fromSelect = document.getElementById('fromZone');
+    const toSelect = document.getElementById('toZone');
+
+    function init() {
+        zones.forEach(zone => {
+            fromSelect.add(new Option(zone.name, zone.value));
+            toSelect.add(new Option(zone.name, zone.value));
+        });
+
+        fromSelect.value = "America/Chicago";
+        toSelect.value = "Asia/Jerusalem";
+        
+        const now = new Date();
+        document.getElementById('timeInput').value = 
+            `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        convertTime();
+    }
+
+    function swapZones() {
+        const temp = fromSelect.value;
+        fromSelect.value = toSelect.value;
+        toSelect.value = temp;
+        convertTime();
+    }
+
+    function convertTime() {
+        const timeVal = document.getElementById('timeInput').value;
+        if (!timeVal) return;
+
+        const [hours, minutes] = timeVal.split(':').map(Number);
+        const baseDate = new Date();
+        baseDate.setHours(hours, minutes, 0, 0);
+
+        // Calculate offset
+        const sourceDate = new Date(new Date().toLocaleString("en-US", {timeZone: fromSelect.value}));
+        const targetDate = new Date(new Date().toLocaleString("en-US", {timeZone: toSelect.value}));
+        const diffHours = Math.round((targetDate - sourceDate) / 36e5);
+
+        const toTimeStr = baseDate.toLocaleTimeString("en-US", {
+            timeZone: toSelect.value, 
+            hour: '2-digit', minute: '2-digit', hour12: false 
+        });
+
+        const fromDateStr = baseDate.toLocaleDateString("en-US", {timeZone: fromSelect.value});
+        const toDateStr = baseDate.toLocaleDateString("en-US", {timeZone: toSelect.value});
+
+        const dayNote = document.getElementById('dayNote');
+        if (fromDateStr !== toDateStr) {
+            dayNote.style.display = "inline-block";
+            dayNote.innerText = new Date(toDateStr) > new Date(fromDateStr) ? "Next Day" : "Previous Day";
+        } else {
+            dayNote.style.display = "none";
+        }
+
+        document.getElementById('outputTime').innerText = toTimeStr;
+        document.getElementById('gapStatus').innerText = `Difference: ${diffHours >= 0 ? '+' : ''}${diffHours} Hours`;
+    }
+
+    init();
+</script>
+
+</body>
+</html>
